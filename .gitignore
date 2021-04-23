@@ -1,0 +1,6 @@
+*.iml
+*.yml
+data/*
+tiny_test_dic/src/matrix.def
+tiny_test_dic/out/*
+target/
