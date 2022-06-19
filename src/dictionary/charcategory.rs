@@ -1,11 +1,11 @@
 use std::io::{self, BufReader};
 
-use crate::Utf16Char;
 use crate::util::*;
+use crate::Utf16Char;
 
 pub const SPACE_CHAR: Utf16Char = 0x0020u16;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Category {
     pub id: i32,
     pub length: i32,
@@ -13,6 +13,7 @@ pub struct Category {
     pub group: bool,
 }
 
+#[derive(Debug, Clone)]
 pub struct CharCategory {
     categories: Box<[Category]>,
     char2id: Box<[i32]>,
@@ -25,11 +26,13 @@ impl CharCategory {
         let src_len = dir.file_size(path)?;
         let mut reader = BufReader::new(dir.open(path)?);
 
-        Ok(CharCategory {
+        let cc = Ok(CharCategory {
             categories: Self::read_categories(dir)?,
             char2id: reader.get_int_array((src_len / 4 / 2) as usize)?,
             eql_masks: reader.get_int_array((src_len / 4 / 2) as usize)?,
-        })
+        });
+
+        cc
     }
 
     pub fn is_compatible(&self, code1: Utf16Char, code2: Utf16Char) -> bool {

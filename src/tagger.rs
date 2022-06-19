@@ -6,8 +6,8 @@ use log::debug;
 
 use crate::dictionary::{self, Matrix, Unknown, ViterbiNode, WordDic};
 use crate::morpheme::Morpheme;
-use crate::{Utf16String, Utf16Str};
 use crate::util::DirLike;
+use crate::{Utf16Str, Utf16String};
 
 type ViterbiNodeList = Vec<Rc<ViterbiNode>>;
 
@@ -20,6 +20,7 @@ fn empty_vec() -> ViterbiNodeList {
 }
 
 /// 形態素解析を行う
+#[derive(Clone)]
 pub struct Tagger {
     wdc: WordDic,
     unk: Unknown,
@@ -59,16 +60,19 @@ impl Tagger {
         let utf16_text: Utf16String = text.encode_utf16().collect::<Vec<_>>();
         let utf8_offsets = utf8_char_offsets(text, utf16_text.len());
 
-        self.parse_impl(&utf16_text).into_iter().map(|n| {
-            let from = utf8_offsets[n.start];
-            let to = utf8_offsets[n.start + (n.length as usize)];
+        self.parse_impl(&utf16_text)
+            .into_iter()
+            .map(|n| {
+                let from = utf8_offsets[n.start];
+                let to = utf8_offsets[n.start + (n.length as usize)];
 
-            Morpheme {
-                surface: &text[from..to],
-                feature: self.wdc.word_data(n.word_id),
-                start: n.start,
-            }
-        }).collect()
+                Morpheme {
+                    surface: &text[from..to],
+                    feature: self.wdc.word_data(n.word_id),
+                    start: n.start,
+                }
+            })
+            .collect()
     }
 
     /// 分かち書きを行う
@@ -76,9 +80,10 @@ impl Tagger {
     /// * `text` - 分かち書きされるテキスト
     pub fn wakati(&self, text: &str) -> Vec<String> {
         let utf16_text: Utf16String = text.encode_utf16().collect::<Vec<_>>();
-        self.parse_impl(&utf16_text).into_iter().map(|n| {
-            String::from_utf16_lossy(&utf16_text[n.start..n.start + (n.length as usize)])
-        }).collect()
+        self.parse_impl(&utf16_text)
+            .into_iter()
+            .map(|n| String::from_utf16_lossy(&utf16_text[n.start..n.start + (n.length as usize)]))
+            .collect()
     }
 
     fn parse_impl(&self, utf16_text: &Utf16Str) -> Vec<Rc<ViterbiNode>> {
@@ -94,14 +99,16 @@ impl Tagger {
         for i in 0..len {
             if !f.nodes_ary[i].is_empty() {
                 f.set(i);
-                self.wdc.search(utf16_text, i, &mut f);      // 単語辞書から形態素を検索
+                self.wdc.search(utf16_text, i, &mut f); // 単語辞書から形態素を検索
                 self.unk.search(utf16_text, i, &self.wdc, &mut f); // 未知語辞書から形態素を検索
             }
         }
         let nodes_ary: Box<[ViterbiNodeList]> = f.into_inner();
 
-        let mut cur: Rc<ViterbiNode> =
-            self.set_mincost_node(ViterbiNode::make_boseos(), &nodes_ary[len]).prev.unwrap();
+        let mut cur: Rc<ViterbiNode> = self
+            .set_mincost_node(ViterbiNode::make_boseos(), &nodes_ary[len])
+            .prev
+            .unwrap();
 
         // reverse
         let mut result: Vec<Rc<ViterbiNode>> = Vec::with_capacity(len / 2);
@@ -190,8 +197,7 @@ impl<'a> dictionary::Callback for MakeLattice<'a> {
         if vn.is_space {
             self.nodes_ary[end].extend(self.prevs.iter().cloned());
         } else {
-            self.nodes_ary[end].push(
-                Rc::new(self.tagger.set_mincost_node(vn, &self.prevs)));
+            self.nodes_ary[end].push(Rc::new(self.tagger.set_mincost_node(vn, &self.prevs)));
         }
     }
 

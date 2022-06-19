@@ -4,13 +4,14 @@ use std::path::Path;
 
 use byteorder::{NativeEndian as NE, ReadBytesExt};
 
-use crate::{Utf16Char, Utf16Str};
 use crate::util::InputUtil;
+use crate::{Utf16Char, Utf16Str};
 
 use super::keystream::KeyStream;
 use super::node;
 
 /// DoubleArray検索用のstruct
+#[derive(Clone)]
 pub struct Searcher {
     key_set_size: usize,
     base: Box<[i32]>,
@@ -81,7 +82,9 @@ impl Searcher {
     /// * `start` - 検索対象となるキー文字列の最初の添字
     /// * `callback` - 一致を検出した場合に呼び出されるクロージャー
     pub fn each_common_prefix<F>(&self, key: &Utf16Str, start: usize, mut callback: F)
-        where F: FnMut(usize, i32, i32) -> () {
+    where
+        F: FnMut(usize, i32, i32) -> (),
+    {
         let mut node = self.base[0];
         let mut offset: i32 = -1;
         let mut input = KeyStream::new(key, start);
@@ -111,18 +114,30 @@ impl Searcher {
         }
     }
 
-    fn call_if_key_including<F>(&self, input: &KeyStream, node: i32, start: usize,
-                                offset: i32, mut callback: F)
-        where F: FnMut(usize, i32, i32) -> () {
+    fn call_if_key_including<F>(
+        &self,
+        input: &KeyStream,
+        node: i32,
+        start: usize,
+        offset: i32,
+        mut callback: F,
+    ) where
+        F: FnMut(usize, i32, i32) -> (),
+    {
         let id = node::base::ID(node) as usize;
-        if input.starts_with(self.tail.as_ref(), self.begs[id] as usize, self.lens[id] as usize) {
+        if input.starts_with(
+            self.tail.as_ref(),
+            self.begs[id] as usize,
+            self.lens[id] as usize,
+        ) {
             callback(start, offset + i32::from(self.lens[id]) + 1, id as i32);
         }
     }
 
     fn key_exists(&self, input: &KeyStream, node: i32) -> bool {
         let id = node::base::ID(node) as usize;
-        let s = &self.tail[(self.begs[id] as usize)..(self.begs[id] as usize + self.lens[id] as usize)];
+        let s =
+            &self.tail[(self.begs[id] as usize)..(self.begs[id] as usize + self.lens[id] as usize)];
         *input.rest() == *s
     }
 }

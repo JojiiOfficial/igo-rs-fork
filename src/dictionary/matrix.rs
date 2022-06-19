@@ -3,6 +3,7 @@ use std::io::{self, BufReader};
 use crate::util::*;
 
 /// 形態素の連接コスト表を扱う
+#[derive(Clone)]
 pub struct Matrix {
     left_size: i32,
     #[allow(dead_code)]

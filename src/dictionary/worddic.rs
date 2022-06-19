@@ -1,12 +1,12 @@
-use std::io::{self, BufReader};
-use crate::trie::Searcher;
 use crate::dictionary;
 use crate::dictionary::ViterbiNode;
+use crate::trie::Searcher;
 use crate::util::*;
 use crate::{Utf16Char, Utf16Str};
 use log::debug;
+use std::io::{self, BufReader};
 
-
+#[derive(Clone)]
 pub struct WordDic {
     trie: Searcher,
     data: String,
@@ -19,13 +19,13 @@ pub struct WordDic {
     /// right_ids[単語ID] = 単語の右文脈ID
     right_ids: Box<[i16]>,
     /// data_offsets[単語ID] = 単語の素性データの開始位置
-    data_offsets: Box<[i32]>
+    data_offsets: Box<[i32]>,
 }
 
 impl WordDic {
     pub fn new(dir: &mut dyn DirLike) -> io::Result<WordDic> {
         let word2id_path = "word2id";
-        let dat_path ="word.dat";
+        let dat_path = "word.dat";
         let idx_path = "word.ary.idx";
         let inf_path = "word.inf";
 
@@ -46,42 +46,48 @@ impl WordDic {
             data_offsets,
             left_ids: reader.get_short_array(word_count)?,
             right_ids: reader.get_short_array(word_count)?,
-            costs: reader.get_short_array(word_count)?
+            costs: reader.get_short_array(word_count)?,
         })
     }
 
-
     pub fn search(&self, text: &Utf16Str, start: usize, callback: &mut dyn dictionary::Callback) {
-        self.trie.each_common_prefix(text, start, |start: usize, offset: i32, trie_id: i32| {
-            /*
-             * common-prefix検索でキーが見つかった場合に呼び出されるクロージャー
-             * each_common_prefix()で該当するキーの部分文字列が見つかった都度に呼び出される
-             *
-             * @param start  入力テキストの検索開始位置
-             * @param offset 一致した部分文字列の終端位置
-             * @param trie_id 一致した部分文字列のID
-             */
-            let trie_id = trie_id as usize;
-            let end: i32 = self.indices[trie_id + 1];
+        self.trie
+            .each_common_prefix(text, start, |start: usize, offset: i32, trie_id: i32| {
+                /*
+                 * common-prefix検索でキーが見つかった場合に呼び出されるクロージャー
+                 * each_common_prefix()で該当するキーの部分文字列が見つかった都度に呼び出される
+                 *
+                 * @param start  入力テキストの検索開始位置
+                 * @param offset 一致した部分文字列の終端位置
+                 * @param trie_id 一致した部分文字列のID
+                 */
+                let trie_id = trie_id as usize;
+                let end: i32 = self.indices[trie_id + 1];
 
-            for i in self.indices[trie_id]..end {
-                let idx = i as usize;
-                callback.call(ViterbiNode {
-                    word_id: i,
-                    start,
-                    length: offset as i16,
-                    cost: i32::from(self.costs[idx]),
-                    left_id: self.left_ids[idx],
-                    right_id: self.right_ids[idx],
-                    is_space: false,
-                    prev: None
-                });
-            }
-        });
+                for i in self.indices[trie_id]..end {
+                    let idx = i as usize;
+                    callback.call(ViterbiNode {
+                        word_id: i,
+                        start,
+                        length: offset as i16,
+                        cost: i32::from(self.costs[idx]),
+                        left_id: self.left_ids[idx],
+                        right_id: self.right_ids[idx],
+                        is_space: false,
+                        prev: None,
+                    });
+                }
+            });
     }
 
-    pub fn search_from_trie_id(&self, trie_id: i32, start: usize, word_length: usize,
-                               is_space: bool, callback: &mut dyn dictionary::Callback) {
+    pub fn search_from_trie_id(
+        &self,
+        trie_id: i32,
+        start: usize,
+        word_length: usize,
+        is_space: bool,
+        callback: &mut dyn dictionary::Callback,
+    ) {
         let trie_id = trie_id as usize;
         let end = self.indices[trie_id + 1];
         for i in self.indices[trie_id]..end {
@@ -94,15 +100,14 @@ impl WordDic {
                 left_id: self.left_ids[idx],
                 right_id: self.right_ids[idx],
                 is_space,
-                prev: None
+                prev: None,
             });
         }
     }
 
     pub fn word_data(&self, word_id: i32) -> &str {
         let word_id = word_id as usize;
-        &self.data[
-            (self.data_offsets[word_id] as usize) .. (self.data_offsets[word_id + 1] as usize)]
+        &self.data[(self.data_offsets[word_id] as usize)..(self.data_offsets[word_id + 1] as usize)]
     }
 }
 

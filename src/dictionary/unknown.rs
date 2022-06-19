@@ -1,16 +1,16 @@
-use std::io::{self};
-use std::cmp::min;
 use crate::dictionary::{self, CharCategory, WordDic, SPACE_CHAR};
-use crate::Utf16Str;
 use crate::util::DirLike;
-
+use crate::Utf16Str;
+use std::cmp::min;
+use std::io::{self};
 
 /// 未知語の検索を行う
+#[derive(Clone)]
 pub struct Unknown {
     /// 文字カテゴリ管理クラス
     pub category: CharCategory,
     /// 文字カテゴリがSPACEの文字のID
-    pub space_id: i32
+    pub space_id: i32,
 }
 
 impl Unknown {
@@ -18,12 +18,17 @@ impl Unknown {
         let category = CharCategory::new(dir)?;
         Ok(Unknown {
             space_id: category.category(SPACE_CHAR).id, // NOTE: ' 'の文字カテゴリはSPACEに予約されている
-            category
+            category,
         })
     }
 
-    pub fn search(&self, text: &Utf16Str, start: usize, wdic: &WordDic,
-                  callback: &mut dyn dictionary::Callback) {
+    pub fn search(
+        &self,
+        text: &Utf16Str,
+        start: usize,
+        wdic: &WordDic,
+        callback: &mut dyn dictionary::Callback,
+    ) {
         let ch = text[start];
         let ct = self.category.category(ch);
 
