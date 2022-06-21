@@ -125,6 +125,9 @@ impl Searcher {
         F: FnMut(usize, i32, i32) -> (),
     {
         let id = node::base::ID(node) as usize;
+        if self.begs.len() <= id || self.lens.len() <= id {
+            return;
+        }
         if input.starts_with(
             self.tail.as_ref(),
             self.begs[id] as usize,
